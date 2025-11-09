@@ -1,114 +1,150 @@
-// Source code is decompiled from a .class file using FernFlower decompiler (from Intellij IDEA).
 import java.util.Scanner;
 
 public class PS7 {
-   public PS7() {
-   }
+    public PS7() { }
 
-   static void printTable(int[] var0, int[] var1, int[] var2, String var3) {
-      System.out.println("\n===== " + var3 + " Allocation =====");
-      System.out.println("Process\tProcess Size\tBlock No\tBlock Size\tUnused Space");
-      System.out.println("---------------------------------------------------------------");
+    static void printTable(int[] procSizes, int[] origBlocks, int[] allocation, String title) {
+        System.out.println("\n===== " + title + " Allocation =====");
+        System.out.println("Process\tProcess Size\tBlock No\tBlock Size\tUnused Space");
+        System.out.println("---------------------------------------------------------------");
 
-      for(int var4 = 0; var4 < var0.length; ++var4) {
-         if (var2[var4] != -1) {
-            int var5 = var2[var4];
-            System.out.println("P" + (var4 + 1) + "\t\t" + var0[var4] + "\t\t" + (var5 + 1) + "\t\t" + var1[var5] + "\t\t" + (var1[var5] - var0[var4]));
-         } else {
-            System.out.println("P" + (var4 + 1) + "\t\t" + var0[var4] + "\t\tNot Allocated\t  -\t\t  -");
-         }
-      }
-
-   }
-
-   static void firstFit(int[] var0, int[] var1) {
-      int[] var2 = new int[var1.length];
-      int[] var3 = (int[])var0.clone();
-
-      for(int var4 = 0; var4 < var1.length; ++var4) {
-         var2[var4] = -1;
-
-         for(int var5 = 0; var5 < var3.length; ++var5) {
-            if (var3[var5] >= var1[var4]) {
-               var2[var4] = var5;
-               var3[var5] -= var1[var4];
-               break;
+        for (int i = 0; i < procSizes.length; i++) {
+            if (allocation[i] != -1) {
+                int b = allocation[i];
+                System.out.println("P" + (i + 1) + "\t\t" + procSizes[i] + "\t\t" + (b + 1) + "\t\t" + origBlocks[b] + "\t\t" + (origBlocks[b] - procSizes[i]));
+            } else {
+                System.out.println("P" + (i + 1) + "\t\t" + procSizes[i] + "\t\tNot Allocated\t  -\t\t  -");
             }
-         }
-      }
+        }
+    }
 
-      printTable(var1, var0, var2, "First Fit");
-   }
+    static void firstFit(int[] origBlocks, int[] procSizes) {
+        int[] allocation = new int[procSizes.length];
+        int[] blocks = origBlocks.clone();
 
-   static void nextFit(int[] var0, int[] var1) {
-      int[] var2 = new int[var1.length];
-      int[] var3 = (int[])var0.clone();
-      int var4 = 0;
-
-      for(int var5 = 0; var5 < var1.length; ++var5) {
-         var2[var5] = -1;
-
-         for(int var6 = 0; var6 < var3.length; ++var6) {
-            int var7 = (var4 + var6) % var3.length;
-            if (var3[var7] >= var1[var5]) {
-               var2[var5] = var7;
-               var3[var7] -= var1[var5];
-               var4 = var7;
-               break;
+        for (int i = 0; i < procSizes.length; i++) {
+            allocation[i] = -1;
+            for (int b = 0; b < blocks.length; b++) {
+                if (blocks[b] >= procSizes[i]) {
+                    allocation[i] = b;
+                    blocks[b] -= procSizes[i];
+                    break;
+                }
             }
-         }
-      }
+        }
 
-      printTable(var1, var0, var2, "Next Fit");
-   }
+        printTable(procSizes, origBlocks, allocation, "First Fit");
+    }
 
-   static void bestFit(int[] var0, int[] var1) {
-      int[] var2 = new int[var1.length];
-      int[] var3 = (int[])var0.clone();
+    static void nextFit(int[] origBlocks, int[] procSizes) {
+        int[] allocation = new int[procSizes.length];
+        int[] blocks = origBlocks.clone();
+        int last = 0; // next search starts from 'last'
 
-      for(int var4 = 0; var4 < var1.length; ++var4) {
-         var2[var4] = -1;
-         int var5 = -1;
-
-         for(int var6 = 0; var6 < var3.length; ++var6) {
-            if (var3[var6] >= var1[var4] && (var5 == -1 || var3[var6] < var3[var5])) {
-               var5 = var6;
+        for (int i = 0; i < procSizes.length; i++) {
+            allocation[i] = -1;
+            int n = blocks.length;
+            for (int k = 0; k < n; k++) {
+                int idx = (last + k) % n;
+                if (blocks[idx] >= procSizes[i]) {
+                    allocation[i] = idx;
+                    blocks[idx] -= procSizes[i];
+                    // start next search from the block AFTER the allocated block
+                    last = (idx + 1) % n;
+                    break;
+                }
             }
-         }
+        }
 
-         if (var5 != -1) {
-            var2[var4] = var5;
-            var3[var5] -= var1[var4];
-         }
-      }
+        printTable(procSizes, origBlocks, allocation, "Next Fit");
+    }
 
-      printTable(var1, var0, var2, "Best Fit");
-   }
+    static void bestFit(int[] origBlocks, int[] procSizes) {
+        int[] allocation = new int[procSizes.length];
+        int[] blocks = origBlocks.clone();
 
-   public static void main(String[] var0) {
-      Scanner var1 = new Scanner(System.in);
-      System.out.print("Enter number of memory blocks: ");
-      int var2 = var1.nextInt();
-      int[] var3 = new int[var2];
-      System.out.println("Enter block sizes:");
+        for (int i = 0; i < procSizes.length; i++) {
+            allocation[i] = -1;
+            int bestIdx = -1;
+            int bestSize = Integer.MAX_VALUE;
+            for (int b = 0; b < blocks.length; b++) {
+                if (blocks[b] >= procSizes[i] && blocks[b] < bestSize) {
+                    bestSize = blocks[b];
+                    bestIdx = b;
+                }
+            }
+            if (bestIdx != -1) {
+                allocation[i] = bestIdx;
+                blocks[bestIdx] -= procSizes[i];
+            }
+        }
 
-      int var4;
-      for(var4 = 0; var4 < var2; ++var4) {
-         var3[var4] = var1.nextInt();
-      }
+        printTable(procSizes, origBlocks, allocation, "Best Fit");
+    }
 
-      System.out.print("Enter number of processes: ");
-      var4 = var1.nextInt();
-      int[] var5 = new int[var4];
-      System.out.println("Enter process sizes:");
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
 
-      for(int var6 = 0; var6 < var4; ++var6) {
-         var5[var6] = var1.nextInt();
-      }
+        System.out.print("Enter number of memory blocks: ");
+        if (!sc.hasNextInt()) {
+            System.out.println("Invalid input. Exiting.");
+            sc.close();
+            return;
+        }
+        int nb = sc.nextInt();
+        if (nb <= 0) {
+            System.out.println("Need at least one block. Exiting.");
+            sc.close();
+            return;
+        }
+        int[] blocks = new int[nb];
+        System.out.println("Enter block sizes:");
+        for (int i = 0; i < nb; i++) {
+            if (!sc.hasNextInt()) {
+                System.out.println("Invalid input. Exiting.");
+                sc.close();
+                return;
+            }
+            blocks[i] = sc.nextInt();
+            if (blocks[i] < 0) {
+                System.out.println("Block sizes must be non-negative. Exiting.");
+                sc.close();
+                return;
+            }
+        }
 
-      firstFit(var3, var5);
-      nextFit(var3, var5);
-      bestFit(var3, var5);
-      var1.close();
-   }
+        System.out.print("Enter number of processes: ");
+        if (!sc.hasNextInt()) {
+            System.out.println("Invalid input. Exiting.");
+            sc.close();
+            return;
+        }
+        int np = sc.nextInt();
+        if (np <= 0) {
+            System.out.println("Need at least one process. Exiting.");
+            sc.close();
+            return;
+        }
+        int[] procs = new int[np];
+        System.out.println("Enter process sizes:");
+        for (int i = 0; i < np; i++) {
+            if (!sc.hasNextInt()) {
+                System.out.println("Invalid input. Exiting.");
+                sc.close();
+                return;
+            }
+            procs[i] = sc.nextInt();
+            if (procs[i] < 0) {
+                System.out.println("Process sizes must be non-negative. Exiting.");
+                sc.close();
+                return;
+            }
+        }
+
+        firstFit(blocks, procs);
+        nextFit(blocks, procs);
+        bestFit(blocks, procs);
+
+        sc.close();
+    }
 }
