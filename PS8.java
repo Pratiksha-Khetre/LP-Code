@@ -3,18 +3,6 @@ import java.util.Scanner;
 
 public class PS8 {
 
-    // Parse a line like "100 500 200" or "100,500,200" into int[]
-    private static int[] parseLineToIntArray(String line) {
-        line = line.trim();
-        if (line.isEmpty()) return new int[0];
-        String[] parts = line.split("[,\\s]+"); // split on commas or whitespace
-        int[] arr = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            arr[i] = Integer.parseInt(parts[i].trim());
-        }
-        return arr;
-    }
-
     // Helper to print results in a table
     private static void printTable(String title, int[] originalBlocks, int[] allocatedProcessIndex, int[] leftover) {
         System.out.println("\n=== " + title + " ===");
@@ -75,7 +63,7 @@ public class PS8 {
             // if not allocated, process remains unallocated
         }
 
-        for (int i = 0; i < blocks.length; i++) leftover[i] = blocks[i];
+        for(int i = 0; i < blocks.length; i++) leftover[i] = blocks[i];
         printTable("Next Fit", origBlocks, allocatedToBlock, leftover);
     }
 
@@ -106,28 +94,46 @@ public class PS8 {
         printTable("Worst Fit", origBlocks, allocatedToBlock, leftover);
     }
 
+    // ---- New main: read counts first and fill arrays with for-loops ----
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
 
-        System.out.println("Enter memory block sizes (space or comma separated). Example: 100 500 200 300 600");
-        System.out.print("Blocks: ");
-        String blocksLine = sc.nextLine();
-        int[] memoryBlocks = parseLineToIntArray(blocksLine);
-
-        System.out.println("Enter process sizes (space or comma separated). Example: 212 417 112 426");
-        System.out.print("Processes: ");
-        String processesLine = sc.nextLine();
-        int[] processSizes = parseLineToIntArray(processesLine);
-
-        if (memoryBlocks.length == 0 || processSizes.length == 0) {
-            System.out.println("Error: Need at least one block and one process.");
+        // Input blocks
+        System.out.print("Enter number of memory blocks: ");
+        int n = sc.nextInt();
+        if (n <= 0) {
+            System.out.println("Need at least one block. Exiting.");
             sc.close();
             return;
+        }
+        int[] memoryBlocks = new int[n];
+
+        System.out.println("Enter sizes of " + n + " memory blocks (one by one):");
+        for (int i = 0; i < n; i++) {
+            System.out.print("Block " + (i + 1) + ": ");
+            memoryBlocks[i] = sc.nextInt();
+        }
+
+        // Input processes
+        System.out.print("\nEnter number of processes: ");
+        int m = sc.nextInt();
+        if (m <= 0) {
+            System.out.println("Need at least one process. Exiting.");
+            sc.close();
+            return;
+        }
+        int[] processSizes = new int[m];
+
+        System.out.println("Enter sizes of " + m + " processes (one by one):");
+        for (int i = 0; i < m; i++) {
+            System.out.print("Process " + (i + 1) + ": ");
+            processSizes[i] = sc.nextInt();
         }
 
         System.out.println("\nMemory blocks: " + Arrays.toString(memoryBlocks));
         System.out.println("Process sizes: " + Arrays.toString(processSizes));
 
+        // Call allocation algorithms
         firstFit(memoryBlocks, processSizes);
         nextFit(memoryBlocks, processSizes);
         worstFit(memoryBlocks, processSizes);

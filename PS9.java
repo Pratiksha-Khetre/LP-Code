@@ -86,9 +86,9 @@ public class PS9 {
                     lastUsed[emptyIdx] = time;
                 } else {
                     int lruIndex = 0;
-                    for (int i = 1; i < frames; i++)
-                        if (lastUsed[i] < lastUsed[lruIndex])
-                            lruIndex = i;
+                    for (int j = 1; j < frames; j++)
+                        if (lastUsed[j] < lastUsed[lruIndex])
+                            lruIndex = j;
 
                     mem[lruIndex] = page;
                     lastUsed[lruIndex] = time;

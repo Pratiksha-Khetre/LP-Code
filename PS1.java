@@ -1,121 +1,200 @@
 import java.util.*;
 
 public class PS1 {
+
     public static void main(String[] args) {
+
         Scanner sc = new Scanner(System.in);
 
-        // Opcode Table
-        Map<String, String> opcodeTable = new HashMap<>();
-        opcodeTable.put("START", "AD,01");
-        opcodeTable.put("END", "AD,02");
-        opcodeTable.put("MOVER", "IS,01");
-        opcodeTable.put("MOVEM", "IS,02");
-        opcodeTable.put("ADD", "IS,03");
-        opcodeTable.put("SUB", "IS,04");
-        opcodeTable.put("MULT", "IS,05");
-        opcodeTable.put("DIV", "IS,06");
-        opcodeTable.put("DC", "DL,01");
-        opcodeTable.put("DS", "DL,02");
+        // TABLES
+        Map<String, Integer> MNT = new LinkedHashMap<>();            // macro name -> MDT index
+        List<String> MDT = new ArrayList<>();                        // macro body
+        Map<String, List<String>> ALA = new LinkedHashMap<>();       // macro -> formal params
 
-        // Register Table
-        Map<String, Integer> registerTable = new HashMap<>();
-        registerTable.put("AREG", 1);
-        registerTable.put("BREG", 2);
-        registerTable.put("CREG", 3);
-        registerTable.put("DREG", 4);
+        Map<String, Integer> SYMTAB = new LinkedHashMap<>();
+        Map<String, Integer> LITTAB = new LinkedHashMap<>();
+        List<Integer> POOLTAB = new ArrayList<>();
+        List<String> Intermediate = new ArrayList<>();
 
-        // Read Assembly Code
-        System.out.println("Enter assembly code (empty line to finish):");
-        List<String> asmCode = new ArrayList<>();
-        while (true) {
-            String line = sc.nextLine().trim();
-            if (line.isEmpty()) break;
-            asmCode.add(line);
-        }
+        List<String> literals = new ArrayList<>();
 
-        // Pass I: Symbol Table, Literal Table, Intermediate Code
-        Map<String, Integer> symbolTable = new LinkedHashMap<>();
-        Map<String, Integer> literalTable = new LinkedHashMap<>();
-        List<String> literalPool = new ArrayList<>();
-        List<String> intermediateCode = new ArrayList<>();
+        System.out.println("Enter number of lines:");
+        int n = sc.nextInt();
+        sc.nextLine();
 
-        int locCounter = 0;
+        System.out.println("Enter Assembly code line by line:");
+        List<String> input = new ArrayList<>();
+        for (int i = 0; i < n; i++)
+            input.add(sc.nextLine().trim());
 
-        for (String line : asmCode) {
+        int lc = 0;
+        boolean inMacro = false;
+        String currentMacro = null;
+
+        POOLTAB.add(0); // first literal pool starts
+
+        // ------------------ PASS I ------------------
+        for (int i = 0; i < n; i++) {
+
+            String line = input.get(i);
             if (line.isEmpty()) continue;
 
-            String[] parts = line.split("\\s+");
-            if (parts.length == 0) continue;
+            String parts[] = line.split("\\s+");
 
-            // Handle START
-            if (parts[0].equals("START")) {
-                if (parts.length > 1) locCounter = Integer.parseInt(parts[1]);
-                intermediateCode.add(locCounter + " (AD,01) START " + (parts.length > 1 ? parts[1] : ""));
+            // ----------- MACRO DEFINITION START ----------
+            if (parts[0].equals("MACRO")) {
+                inMacro = true;
                 continue;
             }
 
-            // Handle END
-            if (parts[0].equals("END")) {
-                for (String lit : literalPool) {
-                    literalTable.put(lit, locCounter++);
+            // Inside MACRO definition
+            if (inMacro) {
+                if (parts[0].equals("MEND")) {
+                    MDT.add("MEND");
+                    inMacro = false;
+                    currentMacro = null;
+                    continue;
                 }
-                intermediateCode.add(locCounter + " (AD,02) END");
+
+                // First line after MACRO is macro header
+                if (currentMacro == null) {
+                    currentMacro = parts[0];          // macro name
+                    MNT.put(currentMacro, MDT.size()); // MDT start index for macro
+
+                    // extract formal parameters
+                    List<String> params = new ArrayList<>();
+                    for (int k = 1; k < parts.length; k++)
+                        if (parts[k].startsWith("&"))
+                            params.add(parts[k]);
+
+                    ALA.put(currentMacro, params);
+                    MDT.add(line); // store macro header
+                } else {
+                    MDT.add(line); // macro body
+                }
+                continue;
+            }
+            // ----------- MACRO DEFINITION END ----------
+
+            // ----------- MACRO CALL ----------
+            if (MNT.containsKey(parts[0])) {
+                String macro = parts[0];
+                List<String> formals = ALA.get(macro);
+
+                // actual parameters
+                Map<String, String> map = new HashMap<>();
+                for (int k = 0; k < formals.size(); k++)
+                    map.put(formals.get(k), parts[k + 1]);
+
+                // expand macro from MDT
+                int start = MNT.get(macro);
+
+                for (int j = start + 1; j < MDT.size(); j++) {
+                    if (MDT.get(j).equals("MEND"))
+                        break;
+
+                    String mline = MDT.get(j);
+                    for (String f : formals)
+                        mline = mline.replace(f, map.get(f));
+
+                    Intermediate.add(lc + ": " + mline);
+
+                    // detect literal
+                    if (mline.contains("=")) {
+                        String lit = mline.substring(mline.indexOf("=")).trim();
+                        if (!literals.contains(lit)) {
+                            literals.add(lit);
+                            LITTAB.put(lit, -1);
+                        }
+                    }
+
+                    lc++;
+                }
+
+                continue;
+            }
+            // ----------- END MACRO CALL ----------
+
+            // START
+            if (parts[0].equals("START")) {
+                Intermediate.add("START");
+                continue;
+            }
+
+            // END → place literals
+            if (parts[0].equals("END")) {
+                Intermediate.add("END");
+
+                for (String lit : literals) {
+                    if (LITTAB.get(lit) == -1) {
+                        LITTAB.put(lit, lc);
+                        Intermediate.add(lc + ": (Literal) " + lit);
+                        lc++;
+                    }
+                }
                 break;
             }
 
-            String label = null, opcode = null, operand = null;
-
-            if (!opcodeTable.containsKey(parts[0])) { // Label exists
-                label = parts[0];
-                symbolTable.put(label, locCounter);
-                if (parts.length > 1) opcode = parts[1];
-                if (parts.length > 2) operand = parts[2];
-            } else { // No label
-                opcode = parts[0];
-                if (parts.length > 1) operand = parts[1];
-            }
-
-            // Handle literals
-            if (operand != null && operand.startsWith("='")) {
-                literalPool.add(operand);
-            }
-
-            // Generate Intermediate Code
-            String ic = locCounter + " (" + (opcode != null && opcodeTable.containsKey(opcode) ? opcodeTable.get(opcode) : "") + ") " + (opcode != null ? opcode : "");
-            if (operand != null) {
-                if (operand.contains(",")) {
-                    String[] opParts = operand.split(",");
-                    String reg = registerTable.getOrDefault(opParts[0].trim(), 0) + "";
-                    String sym = opParts[1].trim();
-                    ic += " " + reg + " " + sym;
-                } else {
-                    ic += " " + operand;
-                }
-            }
-            intermediateCode.add(ic);
-            locCounter++;
+            // NORMAL INSTRUCTION
+            Intermediate.add(lc + ": " + line);
+            lc++;
         }
 
-        // Display Symbol Table
-        System.out.println("\nSymbol Table:");
-        System.out.println("Symbol\tAddress");
-        for (Map.Entry<String, Integer> e : symbolTable.entrySet()) {
-            System.out.println(e.getKey() + "\t" + e.getValue());
-        }
+        // ---------------- OUTPUT ----------------
 
-        // Display Literal Table
-        System.out.println("\nLiteral Table:");
-        System.out.println("Literal\tAddress");
-        for (Map.Entry<String, Integer> e : literalTable.entrySet()) {
-            System.out.println(e.getKey() + "\t" + e.getValue());
-        }
+        System.out.println("\n===== MACRO NAME TABLE (MNT) =====");
+        for (var e : MNT.entrySet())
+            System.out.println(e.getKey() + " -> MDT Index " + e.getValue());
 
-        // Display Intermediate Code
-        System.out.println("\nIntermediate Code:");
-        for (String ic : intermediateCode) {
-            System.out.println(ic);
-        }
+        System.out.println("\n===== MACRO DEFINITION TABLE (MDT) =====");
+        int idx = 0;
+        for (String s : MDT)
+            System.out.println((idx++) + ": " + s);
+
+        System.out.println("\n===== ARGUMENT LIST ARRAY (ALA) =====");
+        for (var e : ALA.entrySet())
+            System.out.println(e.getKey() + " -> " + e.getValue());
+
+        System.out.println("\n===== INTERMEDIATE CODE =====");
+        for (String s : Intermediate)
+            System.out.println(s);
+
+        System.out.println("\n===== LITERAL TABLE =====");
+        for (var e : LITTAB.entrySet())
+            System.out.println(e.getKey() + " -> " + e.getValue());
+
+        System.out.println("\n===== SYMBOL TABLE =====");
+        for (var e : SYMTAB.entrySet())
+            System.out.println(e.getKey() + " -> " + e.getValue());
+
+        System.out.println("\n===== POOL TABLE =====");
+        for (int p : POOLTAB)
+            System.out.println(p);
 
         sc.close();
     }
 }
+
+/*  
+START 200
+READ A
+READ B
+MOVER AREG, ='5'
+MOVER AREG, A
+ADD AREG, B
+SUB AREG, ='6'
+MOVEM AREG, C
+PRINT C
+LTORG
+MOVER AREG, ='15'
+MOVER AREG, A
+ADD AREG, B
+SUB AREG, ='16'
+DIV AREG, ='26'
+MOVEM AREG, C
+A DS 1
+B DS 1
+C DS 1
+STOP
+END
+*/
